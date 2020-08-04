@@ -72,6 +72,8 @@ void ConfigureQEI0(void);
 void Init_PWM(void);
 // initialisiere Winkelencoder
 void Init_Winkel(void);
+// Ausgabe Magnet Ansteuerung
+void Init_Magnet(void);
 
 
 void CAN0IntHandler(void)
@@ -137,6 +139,9 @@ void main(void)
 
     //Winkel Enoceder aktivieren
     Init_Winkel();
+
+    //Magnet Pin vorm Transistor als Output initialisieren
+    Init_Magnet();
 
     printf("Finished.\n");
 
@@ -415,6 +420,15 @@ void Init_Winkel(void)
         //GPIOIntEnable(GPIO_PORTF_BASE, GPIO_PIN_0);
         printf(" done.\n");
         return;
+}
 
+
+void Init_Magnet(void)
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+
+    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+   // GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2, 0);
+    GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2, GPIO_PIN_2);
 }
 // End of file.
