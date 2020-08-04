@@ -70,6 +70,8 @@ void Init_Clock(void);
 void Init_CAN(void);
 void ConfigureQEI0(void);
 void Init_PWM(void);
+// initialisiere Winkelencoder
+void Init_Winkel(void);
 
 
 void CAN0IntHandler(void)
@@ -133,6 +135,9 @@ void main(void)
     //PWM Module aktivieren
     Init_PWM();
 
+    //Winkel Enoceder aktivieren
+    Init_Winkel();
+
     printf("Finished.\n");
 
     // Start TI-RTOS. Everything is now controlled by the BIOS, as defined in your project .CFG file.
@@ -178,7 +183,7 @@ void Task_100ms(void)
 	}*/
 
     // Read the encoder position.
-    Position = QEIPositionGet(QEI0_BASE);
+    Position = QEIPositionGet(QEI1_BASE);
     // display values in debug window
     System_printf("Position: %d\n", Position);
 
@@ -274,9 +279,8 @@ void Init_CAN(void)
 void ConfigureQEI0(){
 /* ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
  * GPIO Konfiguration
- * PHA = PC5
- * PHB = PC6
- * IDX = PC4
+ * PHA = PF0
+ * PHB = PF1
 */
 
     printf("Initializing QEI ...");
@@ -359,5 +363,58 @@ void Init_PWM(void)
 
     PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT , true);
 }
-// End of file.
+
+void Init_Winkel(void)
+{
+    /* ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
+     * GPIO Konfiguration
+     * PHA = PC5
+     * PHB = PC6
+     * IDX = PC4 -> not used at the moment
+    */
+
+        printf("Initializing QEI-Winkel ...");
+        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);         // Enable the QEI0 peripheral
+       // while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
+        SysCtlPeripheralEnable(SYSCTL_PERIPH_QEI1);         // Enable the QEI0 peripheral
+       // while(!SysCtlPeripheralReady(SYSCTL_PERIPH_QEI0));  // Wait for the QEI0 module to be ready.
+        //Set Pins to be PHA0 and PHB0
+
+        GPIOPinConfigure(GPIO_PC5_PHA1);
+        GPIOPinConfigure(GPIO_PC6_PHB1);
+
+        GPIOPinTypeQEI(GPIO_PORTC_BASE, GPIO_PIN_5);
+        GPIOPinTypeQEI(GPIO_PORTC_BASE, GPIO_PIN_6);
+
+        //DISable peripheral and int before configuration
+        QEIDisable(QEI1_BASE);
+        QEIIntDisable(QEI1_BASE,QEI_INTERROR | QEI_INTDIR | QEI_INTTIMER | QEI_INTINDEX);
+
+        QEIConfigure(QEI1_BASE, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_NO_RESET | QEI_CONFIG_QUADRATURE | QEI_CONFIG_NO_SWAP, 1000);
+
+        //Enable velocity capture QEI Module 0
+        //QEIVelocityConfigure(QEI0_BASE, QEI_VELDIV_1, SysCtlClockGet() * TIME_TO_COUNT);
+        // 3rd Parameter = Number of clock cycles to count ticks
+        // ex. 80000000 = sysctlclock = 1 sek
+        //QEIVelocityEnable(QEI0_BASE);
+
+        // enable QEI module
+        QEIEnable(QEI1_BASE);
+
+        //Set Register start Values
+        QEIPositionSet(QEI1_BASE,500);
+
+        // Configure velocity measurement
+        //QEIVelocityConfigure(QEI0_BASE, QEI_VELDIV_1, QEI_TIME_TO_COUNT*SysCtlClockGet());
+        //QEIVelocityEnable(QEI0_BASE);
+
+        // enable gpio interrupts to allow period measurement
+        //GPIOIntDisable(GPIO_PORTF_BASE, GPIO_PIN_0);
+        //GPIOIntClear(GPIO_PORTF_BASE, GPIO_INT_PIN_0);
+        //GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_0,GPIO_RISING_EDGE);
+        //GPIOIntEnable(GPIO_PORTF_BASE, GPIO_PIN_0);
+        printf(" done.\n");
+        return;
+
+}
 // End of file.
