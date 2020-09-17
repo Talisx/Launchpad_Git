@@ -26,6 +26,7 @@
  */
 
 /* XDCtools Header files */
+
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <xdc/cfg/global.h>
@@ -56,6 +57,7 @@
 /* Global variables */
 // Put your global variables here.
 tCANMsgObject MsgObjectTx;
+tCANMsgObject MsgObjectTx1;
 tCANMsgObject sMsgObjectDataRx0;
 
 uint8_t pui8TxBuffer[8];
@@ -63,6 +65,7 @@ uint8_t pui8RxBuffer[8];
 uint8_t TestVariable;
 uint32_t Position;
 bool test = true;
+
 
 /* Function prototypes */
 void Init_Clock(void);
@@ -73,7 +76,7 @@ void Init_PWM(void);
 // initialisiere Winkelencoder
 void Init_Winkel(void);
 // Ausgabe Magnet Ansteuerung
-void Init_Magnet(void);
+//void Init_Magnet(void);
 
 
 void CAN0IntHandler(void)
@@ -90,9 +93,22 @@ void CAN0IntHandler(void)
                     break;
 
         /* RX handler */
-        case 2:     CANIntClear(CAN0_BASE, 2);
+        case 2:    CANIntClear(CAN0_BASE, 2);
                    // ui32CanRxFlags = (ui32CanRxFlags | 0b10);
-                    break;
+                   sMsgObjectDataRx0.pui8MsgData = pui8RxBuffer;
+                   CANMessageGet(CAN0_BASE, 2, &sMsgObjectDataRx0, 0);
+                   TestVariable = pui8RxBuffer[0];
+                   if(TestVariable == 200)
+                   {
+                       Position = QEIPositionGet(QEI0_BASE);
+                       pui8TxBuffer[0] = Position;
+                       CANMessageSet(CAN0_BASE, 1, &MsgObjectTx, MSG_OBJ_TYPE_TX);
+                       //Teil für Winkel
+                       //Position = QEIPositionGet(QEI1_BASE);
+                       //pui8TxBuffer[0] = Position;
+                       //CANMessageSet(CAN0_BASE, 3, &MsgObjectTx1, MSG_OBJ_TYPE_TX);
+                   }
+                   break;
 
         case 3:     CANIntClear(CAN0_BASE, 3);
                     sMsgObjectDataRx0.pui8MsgData = pui8RxBuffer;
@@ -141,7 +157,7 @@ void main(void)
     Init_Winkel();
 
     //Magnet Pin vorm Transistor als Output initialisieren
-    Init_Magnet();
+   // Init_Magnet();
 
     printf("Finished.\n");
 
@@ -188,18 +204,23 @@ void Task_100ms(void)
 	}*/
 
     // Read the encoder position.
+    Position = QEIPositionGet(QEI0_BASE);
+    // display values in debug window
+   // System_printf("Position: %d\n", Position);
+
+    // Read the encoder position.
     Position = QEIPositionGet(QEI1_BASE);
     // display values in debug window
-    System_printf("Position: %d\n", Position);
+   // System_printf("Winkel: %d\n", Position);
 
 
 	// Send a CAN message with the current state placed in the least significant byte.
     //CANMessageSet(CAN0_BASE, 2, &MsgObjectRx, MSG_OBJ_TYPE_RX);
 
 
-	pui8TxBuffer[0] = 200;
+	//pui8TxBuffer[0] = 200;
 	// pui8TxBuffer[1] = Position >> 8;
-	CANMessageSet(CAN0_BASE, 1, &MsgObjectTx, MSG_OBJ_TYPE_TX);
+	//CANMessageSet(CAN0_BASE, 1, &MsgObjectTx, MSG_OBJ_TYPE_TX);
 	//CANMessageGet(CAN0_BASE, 2, MsgObjectRx, MSG_OBJ_TYPE_RX);
 
 }
@@ -251,26 +272,35 @@ void Init_CAN(void)
 	// Reset the CAN controller.
 	CANInit(CAN0_BASE);
 	// Set the baud rate to 250 kBaud/s based on the system clocking. Modify if needed.
-	CANBitRateSet(CAN0_BASE, SysCtlClockGet(), 250000);
+	CANBitRateSet(CAN0_BASE, SysCtlClockGet(), 1000000);
 	// Disable auto-retry if no ACK-bit is received by the CAN controlled.
 	CANRetrySet(CAN0_BASE, 0);
 	// More sophisticated CAN communication requires CAN interrupt handling.
 	// For CAN0, the interrupt vector number is 55 (Macro: INT_CAN0_TM4C123).
 	// Use the BIOS configuration file to set up a HWI for CAN0, with a suitable interrupt handler.
 	// Uncomment the following lines to enable CAN interrupts.
-	//CANIntEnable (CAN0_BASE , CAN_INT_MASTER);
-	//IntEnable (INT_CAN0);
+	CANIntEnable(CAN0_BASE, CAN_INT_MASTER);
+	IntEnable(INT_CAN0);
+
 	CANEnable (CAN0_BASE);
 
 	// Initialize all required message objects.
-	MsgObjectTx.ui32MsgID = 0x0013;			// Message ID is '1'.
+	MsgObjectTx.ui32MsgID = 0x0012;			// Message ID is '1'.
 	MsgObjectTx.ui32Flags = 0x0000;			// No flags are used on this message object.
 	MsgObjectTx.ui32MsgIDMask = 0x0000;		// No masking is used for TX.
 	MsgObjectTx.ui32MsgLen = 8;			    // Set the DLC to '8' (8 bytes of data)
 	MsgObjectTx.pui8MsgData = pui8TxBuffer; // A buffer, to which this message object points for data storage.
 	CANMessageSet(CAN0_BASE, 1, &MsgObjectTx, MSG_OBJ_TYPE_TX);
 
-	sMsgObjectDataRx0.ui32MsgID = 0x0020;
+	// Initialize all required message objects.
+	MsgObjectTx1.ui32MsgID = 0x0013;         // Message ID is '1'.
+	MsgObjectTx1.ui32Flags = 0x0000;         // No flags are used on this message object.
+	MsgObjectTx1.ui32MsgIDMask = 0x0000;     // No masking is used for TX.
+	MsgObjectTx1.ui32MsgLen = 8;             // Set the DLC to '8' (8 bytes of data)
+	MsgObjectTx1.pui8MsgData = pui8TxBuffer; // A buffer, to which this message object points for data storage.
+	CANMessageSet(CAN0_BASE, 3, &MsgObjectTx1, MSG_OBJ_TYPE_TX);
+
+	sMsgObjectDataRx0.ui32MsgID = 0x0011;
 	sMsgObjectDataRx0.ui32MsgIDMask = 0xFFFF;
 	sMsgObjectDataRx0.ui32Flags = (MSG_OBJ_RX_INT_ENABLE | MSG_OBJ_USE_ID_FILTER);
 	sMsgObjectDataRx0.ui32MsgLen = 8;
@@ -422,7 +452,7 @@ void Init_Winkel(void)
         return;
 }
 
-
+/*
 void Init_Magnet(void)
 {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
@@ -431,4 +461,5 @@ void Init_Magnet(void)
    // GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2, 0);
     GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2, GPIO_PIN_2);
 }
+*/
 // End of file.
