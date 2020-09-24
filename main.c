@@ -61,9 +61,14 @@ tCANMsgObject MsgObjectTx1;
 tCANMsgObject sMsgObjectDataRx0;
 
 uint8_t pui8TxBuffer[8];
+uint8_t pui8TxBufferWinkel[8];
 uint8_t pui8RxBuffer[8];
 uint8_t TestVariable;
 uint32_t Position;
+uint8_t Position1;
+uint8_t Position2;
+uint8_t Position3;
+uint8_t Position4;
 bool test = true;
 
 
@@ -101,12 +106,22 @@ void CAN0IntHandler(void)
                    if(TestVariable == 200)
                    {
                        Position = QEIPositionGet(QEI0_BASE);
-                       pui8TxBuffer[0] = Position;
+                       Position1 = Position;
+                       Position2 = Position >> 8;
+                       Position3 = Position >> 16;
+                       Position4 = Position >> 24;
+                       pui8TxBuffer[0] = Position1;
+                       pui8TxBuffer[1] = Position2;
+                       pui8TxBuffer[2] = Position3;
+                       pui8TxBuffer[3] = Position4;
                        CANMessageSet(CAN0_BASE, 1, &MsgObjectTx, MSG_OBJ_TYPE_TX);
+                       //for (i = 0; i < 100000; i++);
+                       // Wait for previous transmission to complete (mailbox 1), im Forum erfragter Code
+                       while((CANStatusGet(CAN0_BASE, CAN_STS_TXREQUEST) & 1) == 1);
                        //Teil für Winkel
-                       //Position = QEIPositionGet(QEI1_BASE);
-                       //pui8TxBuffer[0] = Position;
-                       //CANMessageSet(CAN0_BASE, 3, &MsgObjectTx1, MSG_OBJ_TYPE_TX);
+                       Position = QEIPositionGet(QEI1_BASE);
+                       pui8TxBufferWinkel[0] = Position;
+                       CANMessageSet(CAN0_BASE, 3, &MsgObjectTx1, MSG_OBJ_TYPE_TX);
                    }
                    break;
 
@@ -297,7 +312,7 @@ void Init_CAN(void)
 	MsgObjectTx1.ui32Flags = 0x0000;         // No flags are used on this message object.
 	MsgObjectTx1.ui32MsgIDMask = 0x0000;     // No masking is used for TX.
 	MsgObjectTx1.ui32MsgLen = 8;             // Set the DLC to '8' (8 bytes of data)
-	MsgObjectTx1.pui8MsgData = pui8TxBuffer; // A buffer, to which this message object points for data storage.
+	MsgObjectTx1.pui8MsgData = pui8TxBufferWinkel; // A buffer, to which this message object points for data storage.
 	CANMessageSet(CAN0_BASE, 3, &MsgObjectTx1, MSG_OBJ_TYPE_TX);
 
 	sMsgObjectDataRx0.ui32MsgID = 0x0011;
@@ -339,7 +354,7 @@ void ConfigureQEI0(){
     QEIDisable(QEI0_BASE);
     QEIIntDisable(QEI0_BASE,QEI_INTERROR | QEI_INTDIR | QEI_INTTIMER | QEI_INTINDEX);
 
-    QEIConfigure(QEI0_BASE, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_NO_RESET | QEI_CONFIG_QUADRATURE | QEI_CONFIG_NO_SWAP, 1000);
+    QEIConfigure(QEI0_BASE, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_NO_RESET | QEI_CONFIG_QUADRATURE | QEI_CONFIG_NO_SWAP, 100000);
 
     //Enable velocity capture QEI Module 0
     //QEIVelocityConfigure(QEI0_BASE, QEI_VELDIV_1, SysCtlClockGet() * TIME_TO_COUNT);
@@ -351,7 +366,7 @@ void ConfigureQEI0(){
     QEIEnable(QEI0_BASE);
 
     //Set Register start Values
-    QEIPositionSet(QEI0_BASE,500);
+    QEIPositionSet(QEI0_BASE,50000);
 
     // Configure velocity measurement
     //QEIVelocityConfigure(QEI0_BASE, QEI_VELDIV_1, QEI_TIME_TO_COUNT*SysCtlClockGet());
